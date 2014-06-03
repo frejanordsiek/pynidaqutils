@@ -7,7 +7,7 @@ with open('README.rst') as file:
     long_description = file.read()
 
 setup(name='pynidaqutils',
-      version='0.1',
+      version='0.1.1',
       description='Utilities to work with NI DAQs through PyDAQmx.',
       long_description=long_description,
       author='Freja Nordsiek',

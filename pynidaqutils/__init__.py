@@ -39,10 +39,10 @@ hw_info : dict
     ('voltages'), and the maximum allowed sample frequency
     ('max_sample_frequency').
 
-Version 0.1
+Version 0.1.1
 """
 
-__version__ = "0.1"
+__version__ = "0.1.1"
 
 
 import subprocess
