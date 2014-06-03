@@ -28,10 +28,7 @@
 
 """Connects to a National Instruments DAQ and reads data from it.
 
-Version 0.1
 """
-
-__version__ = "0.1"
 
 import copy
 import sys
@@ -1022,7 +1019,7 @@ if __name__ == '__main__' :
     # Display version information if asked (and then exit). We will need
     # to load the PyDAQmx module if possible and print its version.
     if args.version:
-        print('granular_shaker.daq_program: ' + __version__)
+        print('pynidaqutils: ' + pynidaqutils.__version__)
         if have_PyDAQmx:
             print('PyDAQmx: ' + PyDAQmx.__version__)
         exit(0)
