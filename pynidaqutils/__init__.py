@@ -113,9 +113,21 @@ def list_daqs():
 #: ranges (+/- the value) the analog input channels can do ('voltages'),
 #: and the maximum allowed sample frequency ('max_sample_frequency').
 #:
-hw_info = {'NI USB-6211': {'ai': 16, 'ao': 2, 'di': 4, 'do': 4,
+hw_info = {'NI USB-6210': {'ai': 16, 'ao': 0, 'di': 4, 'do': 4,
            'resolution': 16, 'voltages': (0.2, 1.0, 5.0, 10.0),
            'max_sample_frequency': 250000.0},
-           'NI USB-6210': {'ai': 16, 'ao': 0, 'di': 4, 'do': 4,
+           'NI USB-6211': {'ai': 16, 'ao': 2, 'di': 4, 'do': 4,
+           'resolution': 16, 'voltages': (0.2, 1.0, 5.0, 10.0),
+           'max_sample_frequency': 250000.0},
+           'NI USB-6212': {'ai': 16, 'ao': 2, 'di': 8, 'do': 8,
+           'resolution': 16, 'voltages': (0.2, 1.0, 5.0, 10.0),
+           'max_sample_frequency': 400000.0},
+           'NI USB-6215': {'ai': 16, 'ao': 2, 'di': 4, 'do': 4,
+           'resolution': 16, 'voltages': (0.2, 1.0, 5.0, 10.0),
+           'max_sample_frequency': 250000.0},
+           'NI USB-6216': {'ai': 16, 'ao': 2, 'di': 8, 'do': 8,
+           'resolution': 16, 'voltages': (0.2, 1.0, 5.0, 10.0),
+           'max_sample_frequency': 400000.0},
+           'NI USB-6218': {'ai': 32, 'ao': 2, 'di': 8, 'do': 8,
            'resolution': 16, 'voltages': (0.2, 1.0, 5.0, 10.0),
            'max_sample_frequency': 250000.0}}
