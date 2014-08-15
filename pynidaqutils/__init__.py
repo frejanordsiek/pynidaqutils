@@ -26,9 +26,11 @@
 
 """ Module for finding attatched NI DAQ's and describing them.
 
+Version 0.1.1
+
 Attributes
 ----------
-hw_info : dict
+hw_info : dict of dicts
     Contains the hardware information for different NI DAQ's stored by
     name (the key). Each DAQ has a ``dict`` that has fields for the
     number of single ended analog input channels ('ai'), number of
@@ -39,7 +41,6 @@ hw_info : dict
     ('voltages'), and the maximum allowed sample frequency
     ('max_sample_frequency').
 
-Version 0.1.1
 """
 
 __version__ = "0.1.1"
