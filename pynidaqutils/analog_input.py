@@ -1005,7 +1005,7 @@ if __name__ == '__main__' :
     parser.add_argument('-v', '--version', action='store_true',
                         help='return the version of this program and '
                         + 'PyDAQmx')
-    parser.add_argument('--host', choices=['localhost', 'host', 'both'],
+    parser.add_argument('--host', choices=['localhost', 'all'],
                         default=default_host,
                         help='where to listen for connections '
                         + '(default is ' + default_host + ')')
@@ -1027,8 +1027,8 @@ if __name__ == '__main__' :
     # Run the daq server. If there is an import error, we need to write
     # that to stdout.
     try:
-        if args.host == 'both':
-            daq_server = DaqServer(host=default_host, port=args.port,
+        if args.host == 'all':
+            daq_server = DaqServer(host=None, port=args.port,
                                    debug_communications=args.debug)
         else:
             daq_server = DaqServer(host=args.host, port=args.port,
