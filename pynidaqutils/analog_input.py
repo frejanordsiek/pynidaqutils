@@ -562,7 +562,7 @@ class DaqServerHandler(DaqAsynchat):
         channel_nums = []
         for ch in channels:
             channel_nums.append(ch['channel'])
-            if ch['termination'] == 'Diff':
+            if ch['termination'] == b'Diff':
                 channel_nums.append(ch['channel'] + daq_info['ai']//2)
 
         # Check to see if there are any duplicate channel
