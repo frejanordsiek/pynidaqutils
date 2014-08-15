@@ -1,0 +1,5 @@
+============
+pynidaqutils
+============
+
+.. include:: ../../README.rst
