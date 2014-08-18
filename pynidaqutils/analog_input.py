@@ -972,23 +972,23 @@ class DaqClient(DaqAsynchat):
 
         # Make events for when various commands have finished, various
         # errors were received, or when data has come in.
-        self.scan_finished_event = threading.Event()
-        self.scan_error_event = threading.Event()
-        self.stop_finished_event = threading.Event()
-        self.stop_error_event = threading.Event()
-        self.exit_finished_event = threading.Event()
-        self.setup_finished_event = threading.Event()
-        self.setup_error_invalid_event = threading.Event()
-        self.setup_error_acquiring_event = threading.Event()
-        self.acquisition_finished_event = threading.Event()
-        self.aborting_acquisition_event = threading.Event()
-        self.error_during_acquisition_event = threading.Event()
-        self.invalid_command_event = threading.Event()
-        self.acquisition_started_event = threading.Event()
-        self.acquisition_error_setup_event = threading.Event()
-        self.acquisition_error_acquiring_event = threading.Event()
-        self.got_data_event = threading.Event()
-        self.acquiring_event = threading.Event()
+        self._scan_finished_event = threading.Event()
+        self._scan_error_event = threading.Event()
+        self._stop_finished_event = threading.Event()
+        self._stop_error_event = threading.Event()
+        self._exit_finished_event = threading.Event()
+        self._setup_finished_event = threading.Event()
+        self._setup_error_invalid_event = threading.Event()
+        self._setup_error_acquiring_event = threading.Event()
+        self._acquisition_finished_event = threading.Event()
+        self._aborting_acquisition_event = threading.Event()
+        self._error_during_acquisition_event = threading.Event()
+        self._invalid_command_event = threading.Event()
+        self._acquisition_started_event = threading.Event()
+        self._acquisition_error_setup_event = threading.Event()
+        self._acquisition_error_acquiring_event = threading.Event()
+        self._got_data_event = threading.Event()
+        self._acquiring_event = threading.Event()
 
         # We don't have a DAQ selected yet, so we start with a blank
         # config.
@@ -1011,7 +1011,7 @@ class DaqClient(DaqAsynchat):
         bool
 
         """
-        return self.acquiring_event.is_set()
+        return self._acquiring_event.is_set()
 
     @property
     def start_time(self):
@@ -1083,51 +1083,51 @@ class DaqClient(DaqAsynchat):
 
         """
         if line == b'Scan successful.':
-            self.scan_error_event.clear()
-            self.scan_finished_event.set()
+            self._scan_error_event.clear()
+            self._scan_finished_event.set()
         elif line == b'Stop successful.':
-            self.stop_error_event.clear()
-            self.stop_finished_event.set()
+            self._stop_error_event.clear()
+            self._stop_finished_event.set()
         elif line == b'Exiting.':
-            self.exit_finished_event.set()
+            self._exit_finished_event.set()
             self.close_when_done()
         elif line == b'Setup successful.':
-            self.setup_error_invalid_event.clear()
-            self.setup_error_acquiring_event.clear()
-            self.setup_finished_event.set()
+            self._setup_error_invalid_event.clear()
+            self._setup_error_acquiring_event.clear()
+            self._setup_finished_event.set()
         elif line == b'Finished acquisition.':
-            self.acquisition_finished_event.set()
-            self.acquiring_event.clear()
+            self._acquisition_finished_event.set()
+            self._acquiring_event.clear()
         elif line == b'Aborting acquisition.':
-            self.aborting_acquisition_event.set()
+            self._aborting_acquisition_event.set()
         elif line == b'Error: acquisition.':
-            self.error_during_acquisition_event.set()
+            self._error_during_acquisition_event.set()
         elif line == b'Invalid command.':
-            self.invalid_command_event.set()
+            self._invalid_command_event.set()
         elif line == b'Error:Start: setup.':
-            self.acquisition_error_setup_event.set()
-            self.acquisition_error_acquiring_event.clear()
-            self.acquisition_started_event.set()
+            self._acquisition_error_setup_event.set()
+            self._acquisition_error_acquiring_event.clear()
+            self._acquisition_started_event.set()
         elif line.startswith(b'Error:') \
                 and line.endswith(b'acquiring.'):
             if b':Scan:' in line:
-                self.scan_error_event.set()
-                self.scan_finished_event.set()
+                self._scan_error_event.set()
+                self._scan_finished_event.set()
             elif b':Stop:' in line:
-                self.stop_error_event.set()
-                self.stop_finished_event.set()
+                self._stop_error_event.set()
+                self._stop_finished_event.set()
             elif b':Setup:' in line:
-                self.setup_error_invalid_event.clear()
-                self.setup_error_acquiring_event.set()
-                self.setup_finished_event.set()
+                self._setup_error_invalid_event.clear()
+                self._setup_error_acquiring_event.set()
+                self._setup_finished_event.set()
             elif b':Start:' in line:
-                self.acquisition_error_setup_event.clear()
-                self.acquisition_error_acquiring_event.set()
-                self.acquisition_started_event.set()
+                self._acquisition_error_setup_event.clear()
+                self._acquisition_error_acquiring_event.set()
+                self._acquisition_started_event.set()
         elif line.startswith(b'Invalid:'):
             # There was an error with a setup command.
-            self.setup_error_invalid_event.set()
-            self.setup_finished_event.set()
+            self._setup_error_invalid_event.set()
+            self._setup_finished_event.set()
         elif line.startswith(b'Started at '):
             # Split it into parts based on the spaces, convert all the
             # numeric time ones to floats, and stuff them in
@@ -1138,12 +1138,12 @@ class DaqClient(DaqAsynchat):
             except:
                 self._start_time = None
 
-            self.error_during_acquisition_event.clear()
-            self.aborting_acquisition_event.clear()
-            self.acquisition_error_setup_event.clear()
-            self.acquisition_error_acquiring_event.clear()
-            self.acquisition_started_event.set()
-            self.acquiring_event.set()
+            self._error_during_acquisition_event.clear()
+            self._aborting_acquisition_event.clear()
+            self._acquisition_error_setup_event.clear()
+            self._acquisition_error_acquiring_event.clear()
+            self._acquisition_started_event.set()
+            self._acquiring_event.set()
         elif line.startswith(b'Data:'):
             # The data to write looks like
             #
@@ -1211,12 +1211,12 @@ class DaqClient(DaqAsynchat):
 
                 # Successfully got data, so the event needs to be set
                 # and we are done processing this line.
-                self.got_data_event.set()
+                self._got_data_event.set()
                 return
 
             # There was something wrong with the data we received, so we
             # need to clear the got_data_event.
-            self.got_data_event.clear()
+            self._got_data_event.clear()
 
 
     def scan_daqs(self, timeout=None):
@@ -1236,10 +1236,10 @@ class DaqClient(DaqAsynchat):
             Whether the scan was successful or not.
 
         """
-        self.scan_finished_event.clear()
+        self._scan_finished_event.clear()
         self.push_line(b'Scan')
-        self.scan_finished_event.wait(timeout)
-        return (not self.scan_error_event.is_set())
+        self._scan_finished_event.wait(timeout)
+        return (not self._scan_error_event.is_set())
 
     def start_daq(self, timeout=None):
         """ Start the DAQ.
@@ -1264,11 +1264,11 @@ class DaqClient(DaqAsynchat):
         # If we don't have a valid setup yet, then there is no point
         # even trying as we know it is an error.
         if self._daq_config[0] != b'':
-            self.error_during_acquisition_event.clear()
-            self.aborting_acquisition_event.clear()
-            self.acquisition_error_setup_event.set()
-            self.acquisition_error_acquiring_event.clear()
-            self.acquisition_started_event.clear()
+            self._error_during_acquisition_event.clear()
+            self._aborting_acquisition_event.clear()
+            self._acquisition_error_setup_event.set()
+            self._acquisition_error_acquiring_event.clear()
+            self._acquisition_started_event.clear()
             return False
 
         # The command can be done, but first, the existing data buffer
@@ -1278,14 +1278,14 @@ class DaqClient(DaqAsynchat):
             self._data_log = []
 
         # Do the command.
-        self.got_data_event.clear()
-        self.error_during_acquisition_event.clear()
-        self.aborting_acquisition_event.clear()
-        self.acquisition_started_event.clear()
+        self._got_data_event.clear()
+        self._error_during_acquisition_event.clear()
+        self._aborting_acquisition_event.clear()
+        self._acquisition_started_event.clear()
         self.push_line(b'Start')
-        self.acquisition_started_event.wait(timeout)
-        return (not self.acquisition_error_setup_event.is_set()
-                or not self.acquisition_error_acquiring_event.is_set())
+        self._acquisition_started_event.wait(timeout)
+        return (not self._acquisition_error_setup_event.is_set()
+                or not self._acquisition_error_acquiring_event.is_set())
 
     def stop_daq(self, timeout=None):
         """ Stops the DAQ.
@@ -1307,10 +1307,10 @@ class DaqClient(DaqAsynchat):
         start_daq
 
         """
-        self.stop_finished_event.clear()
+        self._stop_finished_event.clear()
         self.push_line(b'Stop')
-        self.stop_finished_event.wait(timeout)
-        return (not self.stop_error_event.is_set())
+        self._stop_finished_event.wait(timeout)
+        return (not self._stop_error_event.is_set())
 
     def exit(self, timeout=None):
         """ Close and exit this client and the connection to the server.
@@ -1323,9 +1323,9 @@ class DaqClient(DaqAsynchat):
             denotes an infinite timeout.
 
         """
-        self.exit_finished_event.clear()
+        self._exit_finished_event.clear()
         self.push_line(b'Exit')
-        self.exit_finished_event.wait(timeout)
+        self._exit_finished_event.wait(timeout)
         self.close_when_done()
 
     def setup_daq(self, device, frequency, count, tp, channels,
@@ -1397,14 +1397,14 @@ class DaqClient(DaqAsynchat):
 
         # Reset the event, send the command, and wait till we get a
         # response.
-        self.setup_finished_event.clear()
+        self._setup_finished_event.clear()
         self.push_line(command)
-        self.setup_finished_event.wait(timeout)
+        self._setup_finished_event.wait(timeout)
 
         # Return whether the command was successful or not. If it was
         # successful, self._daq_config can be set.
-        if self.setup_error_invalid_event.is_set() \
-                or self.setup_error_acquiring_event.is_set():
+        if self._setup_error_invalid_event.is_set() \
+                or self._setup_error_acquiring_event.is_set():
             return (False, copy.deepcopy(command),
                     copy.deepcopy(daq_conf))
         else:
