@@ -1443,11 +1443,11 @@ class DaqInterface(object):
         #:
         #: str
         #:
-        self.daq_program_path = __file__
+        self._daq_program_path = __file__
 
         # We need to grab all the version information from daq_program,
         # so we need to run it with the --versions option.
-        output = subprocess.check_output([self.daq_program_path,
+        output = subprocess.check_output([self._daq_program_path,
                                          '--version'],
                                          universal_newlines=True)
 
@@ -1536,7 +1536,7 @@ class DaqInterface(object):
         if self._server is not None:
             return False
 
-        self._server = subprocess.Popen([self.daq_program_path],
+        self._server = subprocess.Popen([self._daq_program_path],
                                         stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE,
