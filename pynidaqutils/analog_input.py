@@ -1471,9 +1471,11 @@ class DaqInterface(object):
 
         # We need to grab all the version information from daq_program,
         # so we need to run it with the --versions option.
-        output = subprocess.check_output([self._daq_program_path,
-                                         '--version'],
-                                         universal_newlines=True)
+        popen = subprocess.Popen([self._daq_program_path, '--version'],
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT,
+                                 universal_newlines=True)
+        (output, err) = popen.communicate()
 
         # We need to make a dict of the versions of each part. Each line
         # of output is the a version of the form 'package: version'.
@@ -1597,9 +1599,13 @@ class DaqInterface(object):
         # Stop the client if it is there.
         self.stop_client(timeout=timeout)
 
-        # Send the close command on the server's stdin.
-        outputs = self._server.communicate(input='close\n',
-                                           timeout=timeout)
+        # Send the close command on the server's stdin. A timeout is
+        # only supported for python >= 3.3.
+        if sys.hexversion < 0x3030000:
+            outputs = self._server.communicate(input='close\n',
+                                               timeout=timeout)
+        else:
+            outputs = self._server.communicate(input='close\n')
 
         self._server = None
         return ('closed' in outputs[0].lower())
