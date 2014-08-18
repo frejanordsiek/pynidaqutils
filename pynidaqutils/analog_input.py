@@ -1634,6 +1634,7 @@ class DaqInterface(object):
             # error is re-raised.
             try:
                 self._server = paramiko.SSHClient()
+                self._server.load_system_host_keys()
                 self._server.connect(host, username=username,
                                      password=password)
                 self._server_pipes['stdin'], \
@@ -1819,7 +1820,7 @@ if __name__ == '__main__' :
     # that to stdout.
     try:
         if args.host == 'all':
-            daq_server = DaqServer(host=None, port=args.port,
+            daq_server = DaqServer(host='', port=args.port,
                                    debug_communications=args.debug)
         else:
             daq_server = DaqServer(host=args.host, port=args.port,
