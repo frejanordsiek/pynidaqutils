@@ -1480,7 +1480,7 @@ class DaqInterface(object):
         #: stored in the keys ``'pynidaqutils'``, ``'PyDAQmx'``, and
         #: ``'paramiko'`` respectively.
         #:
-        self.versions = {'pynidaqutils': __version}
+        self.versions = {'pynidaqutils': pynidaqutils.__version__}
         if have_PyDAQmx:
             self.versions['PyDAQmx'] = PyDAQmx.__version__
         if have_paramiko:
@@ -1597,7 +1597,7 @@ class DaqInterface(object):
         OSError
             If `python_command` cannot be found and executed on this
             machine.
-        
+
         See Also
         --------
         stop_server
@@ -1617,11 +1617,12 @@ class DaqInterface(object):
         # of output, which has all the version information needs to be
         # grabbed.
         if host == 'localhost':
-            self._server = subprocess.Popen([python_command, '-m', \
-                __name__, '--host', 'localhost', '--port', str(port)], \
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, \
-                stderr=subprocess.PIPE, universal_newlines=True)
-            output = Popen.readline()
+            self._server = subprocess.Popen([python_command, '-u', \
+                '-m', __name__, '--host', 'localhost', '--port', \
+                str(port)], stdin=subprocess.PIPE, \
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, \
+                universal_newlines=True)
+            output = self._server.stdout.readline()
         else:
             # Absolutely must have paramiko.
             if not have_paramiko:
@@ -1639,7 +1640,7 @@ class DaqInterface(object):
                     self._server_pipes['stdout'], \
                     self._server_pipes['stderr'] \
                     = self._server.exec_command( \
-                    python_command + ' -m ' + __name__ \
+                    python_command + ' -u -m ' + __name__ \
                     + ' --host all --port ' + str(port))
                 output = self._server_pipes['stdout'].readline()
             except:
@@ -1801,7 +1802,7 @@ if __name__ == '__main__' :
     # Load the version information for all the relevant modules into a
     # list. We will need only be able to get the PyDAQmx and paramiko
     # versions if they were able to be imported.
-    versions = ['pynidaqutils: ' + pynidaqutils.__version]
+    versions = ['pynidaqutils: ' + pynidaqutils.__version__]
     if have_PyDAQmx:
         versions.append('PyDAQmx: ' + PyDAQmx.__version__)
     if have_paramiko:
