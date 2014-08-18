@@ -1719,7 +1719,7 @@ class DaqInterface(object):
         # Reset _server and return whether the closing was a success or
         # not.
         self._server = None
-        return ('closed' in outputs[0].lower())
+        return ('closed' in _convert_to_str(outputs[0]).lower())
 
     def start_client(self):
         """ Start the client.
