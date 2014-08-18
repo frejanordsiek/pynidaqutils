@@ -342,11 +342,11 @@ class DaqAsynchat(asynchat.async_chat):
 
     Parameters
     ----------
-    sock : socket.socket or None
+    sock : socket.socket or None, optional
         The ``socket.socket`` to use. ``None`` means use the default
         one obtained from calling
         ``self.create_socket(socket.AF_INET, socket.SOCK_STREAM)``.
-    debug_communications : bool
+    debug_communications : bool, optional
         Whether to debug communications over the socket by printing
         sent and received text to standard output. The first 60
         characters are printed along with a prefix of ``'[sent] '``
@@ -500,14 +500,14 @@ class DaqServer(asyncore.dispatcher):
 
     Parameters
     ----------
-    host : str or None
+    host : str or None, optional
         The address/interface to listen on. ``''`` and ``None`` mean
         listen to all interfaces. ``'localhost'`` means listen only
         on the local loopback device.
-    port : int
+    port : int, optional
         The port to accept connections from. Should be greater than
         1024 to avoid clashing with reserved ports.
-    debug_communications : bool
+    debug_communications : bool, optional
         Whether to debug communications over the socket by printing
         sent and received text to standard output. The first 60
         characters are printed along with a prefix of ``'[sent] '``
@@ -565,7 +565,7 @@ class DaqServerHandler(DaqAsynchat):
     ----------
     sock : socket.socket
         Connected socket to communicate with the client on.
-    debug_communications : bool
+    debug_communications : bool, optional
         Whether to debug communications over the socket by printing
         sent and received text to standard output. The first 60
         characters are printed along with a prefix of ``'[sent] '``
@@ -977,11 +977,11 @@ class DaqClient(DaqAsynchat):
 
     Parameters
     ----------
-    host : str
+    host : str, optional
         The host name of the machine the DAQ server is running on. Can
         be a valid IP address, a DNS resolvable address, or
         ``'localhost'`` specifying this machine.
-    port : int
+    port : int, optional
         The port to accept connections from. Should be greater than
         1024 to avoid clashing with reserved ports.
 
@@ -1258,7 +1258,7 @@ class DaqClient(DaqAsynchat):
 
         Parameters
         ----------
-        timeout : float or None
+        timeout : float or None, optional
             The timeout to use when waiting for the response from the
             server that the scan was successful or in error after the
             scan_daq command is sent to the server. ``None``
@@ -1280,7 +1280,7 @@ class DaqClient(DaqAsynchat):
 
         Parameters
         ----------
-        timeout : float or None
+        timeout : float or None, optional
             The timeout to use when waiting for the acquisition to start
             after the start command is sent to the server. ``None``
             denotes an infinite timeout.
@@ -1326,7 +1326,7 @@ class DaqClient(DaqAsynchat):
 
         Parameters
         ----------
-        timeout : float or None
+        timeout : float or None, optional
             The timeout to use when waiting for the acquisition to stop
             after the stop command is sent to the server. ``None``
             denotes an infinite timeout.
@@ -1351,7 +1351,7 @@ class DaqClient(DaqAsynchat):
 
         Parameters
         ----------
-        timeout : float or None
+        timeout : float or None, optional
             The timeout to use when waiting for the connection to close
             after the exit command is sent to the server. ``None``
             denotes an infinite timeout.
@@ -1391,7 +1391,7 @@ class DaqClient(DaqAsynchat):
             field ``'termination'``. The input termination and must be
             either ``b'Diff'`` (differential), ``b'RSE'`` (Reference
             Single Ended), or ``b'NRSE'`` (Non-Referenced Single Ended).
-        timeout : float or None
+        timeout : float or None, optional
             The timeout to use when waiting for the server to respond
             after the DAQ setup command is sent to the server. ``None``
             denotes an infinite timeout.
@@ -1561,7 +1561,7 @@ class DaqInterface(object):
             and password to use to log in to it.
         port : int, optional
             The port for the server to run on. Should be greater than
-            1024 to not clash with reserved ports.
+            1024 to avoid clashing with reserved ports.
         python_command : str, optional
             The command to run the python executable that is desired
             to use to run the server with.
@@ -1668,7 +1668,7 @@ class DaqInterface(object):
 
         Parameters
         ----------
-        timeout : float or None
+        timeout : float or None, optional
             The timeout to use when stopping the server and client.
             ``None`` denotes an infinite timeout.
 
@@ -1748,7 +1748,7 @@ class DaqInterface(object):
 
         Parameters
         ----------
-        timeout : float or None
+        timeout : float or None, optional
             The timeout to use when stopping the client and when
             waiting for the socket to close. ``None`` denotes an
             infinite timeout.
