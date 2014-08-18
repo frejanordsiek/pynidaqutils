@@ -285,7 +285,7 @@ class ReadAnalogInputThread(threading.Thread):
         n : int
             The index of the starting sample in the block from the
             beginning of acquisition (zero indexed).
-        
+
         """
         # The data to write looks like
         #
@@ -322,13 +322,6 @@ class DaqAsynchat(asynchat.async_chat):
         and ``'[received] '`` for sent and received text
         respectively.
 
-    Attributes
-    ----------
-    sending : threading.Lock
-        Lock for sending data over the socket.
-    term : bytes
-        Newline termination for input and output lines.
-
     See Also
     --------
     DaqClient
@@ -346,28 +339,14 @@ class DaqAsynchat(asynchat.async_chat):
         # collect_incoming_data.
         self.set_terminator(None)
 
-        #: Newline termination for input and output lines.
-        #:
-        #: bytes
-        #:
-        #: Default value is ``b'\n'``.
-        #:
-        self.term = b'\n'
+        # Going to be using \n as the line terminator in all cases.
+        self._term = b'\n'
 
         # Make an empty input buffer.
         self._input_buffer = b''
 
-        #: Lock for sending data over the socket
-        #:
-        #: threading.Lock
-        #:
-        #: Needed for thread safety.
-        #:
-        #: See Also
-        #: --------
-        #: threading.Lock
-        #:
-        self.sending = threading.Lock()
+        # Need a lock for sending data to avoid threading problems.
+        self._sending = threading.Lock()
 
         # Make huge buffers.
         self.ac_in_buffer_size = 10*1024*1024
@@ -376,18 +355,16 @@ class DaqAsynchat(asynchat.async_chat):
     def initiate_send(self):
         """ Wrapper with locking for async_chat method.
 
-        Wraps ``asynchat.async_chat.initiate_send`` in a lock of
-        ``sending``.
-
+        Wraps ``asynchat.async_chat.initiate_send`` in a lock.
+        
         See Also
         --------
-        sending
         asynchat.async_chat.initiate_send
 
         """
         # Have to override the parent version and wrap in a lock for
         # thread safety reasons. Found this out on the internet.
-        with self.sending:
+        with self._sending:
             asynchat.async_chat.initiate_send(self)
 
     def collect_incoming_data(self, data):
@@ -395,7 +372,7 @@ class DaqAsynchat(asynchat.async_chat):
 
         Collects the incoming `data`, combines it with that already
         collected, splits it into lines based on the newline terminator
-        (``term``), and sends each line off to ``process_input_line``
+        (``'\\n'``), and sends each line off to ``process_input_line``
         for processing. If the ``debug_communications`` option was set,
         the first 60 characters are written to standard out prefixed
         with ``'[received] '``.
@@ -407,14 +384,13 @@ class DaqAsynchat(asynchat.async_chat):
 
         See Also
         --------
-        term
         process_input_line
 
         """
         # Join the whole buffer together and then split at the
         # terminators.
         self._input_buffer += data
-        parts = self._input_buffer.split(self.term)
+        parts = self._input_buffer.split(self._term)
 
         # The last part is will either be the piece with no newline at
         # the end, or empty. Either way, the buffer should be set to it
@@ -438,18 +414,17 @@ class DaqAsynchat(asynchat.async_chat):
         ----------
         line : bytes
             The line of text to write to the socket without the
-            terminating newline (``term`` is added onto the end
+            terminating newline (``'\\n'`` is added onto the end
             automatically).
 
         See Also
         --------
-        term
         push_lines
 
         """
         if self._debug_communications:
             print('[sent] ' + line[:60].decode())
-        self.push(line + self.term)
+        self.push(line + self._term)
 
     def push_lines(self, lines):
         """ Write a bunch of lines of text to the socket one at a time.
@@ -480,7 +455,7 @@ class DaqAsynchat(asynchat.async_chat):
         ----------
         line : bytes
             The line of recieved text to process. Does not include
-            the newline, ``term``.
+            the newline, ``'\\n'``.
 
         """
         pass
@@ -627,7 +602,7 @@ class DaqServerHandler(DaqAsynchat):
         ----------
         line : bytes
             The line of recieved text to process. Does not include
-            the newline, ``term``.
+            the newline, ``'\\n'``.
 
         """
         # Process the different commands.
@@ -1104,7 +1079,7 @@ class DaqClient(DaqAsynchat):
         ----------
         line : bytes
             The line of recieved text to process. Does not include
-            the newline, ``term``.
+            the newline, ``'\\n'``.
 
         """
         if line == b'Scan successful.':
