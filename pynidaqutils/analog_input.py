@@ -63,8 +63,8 @@ except:
     have_PyDAQmx = False
 
 # Need to keep track of the default host and port for the server.
-default_host = 'localhost'
-default_port = 8163
+_default_host = 'localhost'
+_default_port = 8163
 
 
 class ReadAnalogInputThread(threading.Thread):
@@ -491,7 +491,7 @@ class DaqServer(asyncore.dispatcher):
     DaqInterface
 
     """
-    def __init__(self, host=default_host, port=default_port,
+    def __init__(self, host=_default_host, port=_default_port,
                  debug_communications=False):
         self._debug_communications = debug_communications
         asyncore.dispatcher.__init__(self)
@@ -963,7 +963,7 @@ class DaqClient(DaqAsynchat):
     DaqInterface
 
     """
-    def __init__(self, host='localhost', port=default_port,
+    def __init__(self, host='localhost', port=_default_port,
                  debug_communications=False):
         DaqAsynchat.__init__(self, \
             debug_communications=debug_communications)
@@ -1649,12 +1649,12 @@ if __name__ == '__main__' :
                         help='return the version of this program and '
                         + 'PyDAQmx')
     parser.add_argument('--host', choices=['localhost', 'all'],
-                        default=default_host,
+                        default=_default_host,
                         help='where to listen for connections '
-                        + '(default is ' + default_host + ')')
-    parser.add_argument('--port', type=int, default=default_port,
+                        + '(default is ' + _default_host + ')')
+    parser.add_argument('--port', type=int, default=_default_port,
                         help='port to listen to connections on '
-                        + '(default is ' + str(default_port) + ')')
+                        + '(default is ' + str(_default_port) + ')')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='print comminications to stdout')
     args = parser.parse_args()
