@@ -166,8 +166,8 @@ class ReadAnalogInputThread(threading.Thread):
 
         # Send a message back to the client (using the server) saying
         # when we started.
-        self.server.push_line((('Started at {0} {1} {2} {3} {4}' \
-            + ' {5}').format(*self._trigger_time)).encode())
+        self.server.push_line(('Started at {0} {1} {2} {3} {4}' \
+            + ' {5}').format(*self._trigger_time))
 
         # Read data continuously till either the task is done (acquiring
         # a finite number of samples and all are taken) or we were told
@@ -319,9 +319,10 @@ class ReadAnalogInputThread(threading.Thread):
         # xN is n written in hexidecimal, xNUM is the number of rows in
         # block written in hexidecimal, and YYYYYYYYYYYYYYYYYYY is all
         # the bytes in block converted to hexidecimal.
-        self.server.push_line(b'Data:' + sys.byteorder.encode() + b':' \
-            + hex(n).encode() + b':' + hex(block.shape[0]).encode() \
-            + b': ' + binascii.hexlify(block.flatten().tostring()))
+        self.server.push_line(b'Data:' + _convert_to_ascii( \
+            + sys.byteorder + ':'  + hex(n) + ':' \
+            + hex(block.shape[0])) + b': ' \
+            + binascii.hexlify(block.flatten().tostring()))
 
 
 class DaqAsynchat(asynchat.async_chat):
@@ -727,7 +728,8 @@ class DaqServerHandler(DaqAsynchat):
         self._analog_input = PyDAQmx.Task()
         for ch in channels:
             self._analog_input.CreateAIVoltageChan( \
-                device + b'/ai' + str(ch['channel']).encode(), \
+                device + b'/ai' \
+                + _convert_to_ascii(str(ch['channel'])), \
                 None, terminations[ch['termination']],
                 -ch['voltage'], ch['voltage'],
                 PyDAQmx.DAQmx_Val_Volts, None)
@@ -848,7 +850,7 @@ class DaqServerHandler(DaqAsynchat):
 
         # Check that count is positive or -1.
         if count < 1 and count != -1:
-            return (b'Invalid: count ' + str(count).encode()
+            return (b'Invalid: count ' + _convert_to_ascii(str(count))
                     + b' must be positive or -1.', b'', 0.0, 0, b'', [])
 
         # Parse the provided channels and make a list of them in order
@@ -891,24 +893,26 @@ class DaqServerHandler(DaqAsynchat):
 
         # Check to make sure the given device name is one of them (it is
         # an invalid if not).
-        if device.decode() not in self._daq_list:
-            return (b"Invalid: device '" + device + b"' not among "
-                    b'available devices: '
-                    + str(list(self._daq_list.keys())).encode() + b'.',
-                    b'', 0.0, 0, b'', [])
+        if _convert_to_str(device) not in self._daq_list:
+            return (b"Invalid: device '" + device + b"' not among " \
+                + b'available devices: ' \
+                + _convert_to_ascii(str(list(self._daq_list.keys()))) \
+                + b'.', b'', 0.0, 0, b'', [])
 
         # Grab the hardware info for this DAQ.
         daq_info = pynidaqutils.hw_info[self._daq_list[ \
-            device.decode()]['type']]
+            _convert_to_str(device)]['type']]
 
         # Check to make sure the sample frequency is positive and not
         # too high.
         if len(channels) * frequency \
                 > daq_info['max_sample_frequency'] or frequency <= 0.0:
-            return (b'Invalid: frequency ' + str(frequency).encode()
-                    + b' not in the range (0.0, '
-                    + str(daq_info['max_sample_frequency']).encode()
-                    + b'].', b'', 0.0, 0, b'', [])
+            return (b'Invalid: frequency ' \
+                + _convert_to_ascii(str(frequency)) \
+                + b' not in the range (0.0, ' \
+                + _convert_to_ascii(str(daq_info[ \
+                'max_sample_frequency'])) \
+                + b'].', b'', 0.0, 0, b'', [])
 
         # Make a list of all the channel numbers on the device that will
         # be used. For single ended channels, it is just the specified
@@ -931,25 +935,25 @@ class DaqServerHandler(DaqAsynchat):
         # Check to make sure that none of the channels are negative.
         if min(channel_nums) < 0:
             return (b'Invalid: negative channel '
-                    + str(min(channel_nums)).encode() + b'.', b'',
-                    0.0, 0, b'', [])
+                    + _convert_to_ascii(str(min(channel_nums)))
+                    + b'.', b'', 0.0, 0, b'', [])
 
         # Check to make sure that none of the channels are above the
         # maximum range (total available minus 1).
         if max(channel_nums) >= daq_info['ai']:
             return (b'Invalid: channel '
-                    + str(max(channel_nums)).encode()
+                    + _convert_to_ascii(str(max(channel_nums)))
                     + b' when the highest available one is '
-                    + str(daq_info['ai'] - 1).encode() + b'.', b'',
-                    0.0, 0, b'', [])
+                    + _convert_to_ascii(str(daq_info['ai'] - 1))
+                    + b'.', b'', 0.0, 0, b'', [])
 
         # Check to make sure that none of the maximum expected voltages
         # are greater than what the DAQ can handle.
         max_voltage = max([ch['voltage'] for ch in channels])
         if max(daq_info['voltages']) < max_voltage:
             return (b"Invalid: DAQ can't handle voltage "
-                    + str(max_voltage).encode() + b' > '
-                    + str(max(daq_info['voltages'])).encode() + b'.',
+                    + _convert_to_ascii(str(max_voltage) + ' > '
+                    + str(max(daq_info['voltages']))) + b'.',
                     b'', 0.0, 0, b'', [])
 
         # Its valid, so return everything.
@@ -1209,7 +1213,7 @@ class DaqClient(DaqAsynchat):
 
                 # If the endianness doesn't match this machine, swap the
                 # bytes.
-                if sys.byteorder != endianness.decode():
+                if sys.byteorder != _convert_to_str(endianness):
                     block = block.byteswap()
 
                 # If we are on the first sample, then we need to clear
@@ -1404,9 +1408,10 @@ class DaqClient(DaqAsynchat):
         # Construct the channels strings.
         channel_strings = []
         for ch in channels:
-            channel_strings.append((':'.join([str(ch['channel']), \
+            channel_strings.append(_convert_to_ascii( \
+                ':'.join([str(ch['channel']), \
                 str(ch['voltage']), \
-                ch['termination'].decode()])).encode())
+                _convert_to_str(ch['termination'])])))
 
         # Make the command to send. This consists of adding the device,
         # frequency (as a string), count (as a string), the type, and
@@ -1415,8 +1420,8 @@ class DaqClient(DaqAsynchat):
         parts = [b'Setup:']
         parts.extend(daq_conf[1:-1])
         parts.extend(channel_strings)
-        parts[2] = str(parts[2]).encode()
-        parts[3] = str(parts[3]).encode()
+        parts[2] = _convert_to_ascii(str(parts[2]))
+        parts[3] = _convert_to_ascii(str(parts[3]))
         command = b' '.join(parts)
 
         # Reset the event, send the command, and wait till we get a
