@@ -1,5 +1,3 @@
-#!/usr/bin/env python3-32bit
-
 # Copyright (c) 2014, Freja Nordsiek
 # All rights reserved.
 #
@@ -61,6 +59,14 @@ try:
     import PyDAQmx
 except:
     have_PyDAQmx = False
+
+# Try to import paramiko, which could easily fail, and set a flag
+# according to whether it was imported or not.
+have_paramiko = True
+try:
+    import paramiko
+except:
+    have_paramiko = False
 
 # Need to keep track of the default host and port for the server.
 _default_host = 'localhost'
@@ -1466,36 +1472,29 @@ class DaqInterface(object):
 
     """
     def __init__(self):
-        # The path to this module, which is needed to start a server.
-        self._daq_program_path = __file__
-
-        # We need to grab all the version information from daq_program,
-        # so we need to run it with the --versions option.
-        popen = subprocess.Popen([self._daq_program_path, '--version'],
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT,
-                                 universal_newlines=True)
-        (output, err) = popen.communicate()
-
-        # We need to make a dict of the versions of each part. Each line
-        # of output is the a version of the form 'package: version'.
-
-        #: The versions of pynidaqutils and PyDAQmx.
+        #: The versions of pynidaqutils, PyDAQmx, and paramiko
         #:
         #: dict
         #:
-        #: The versions of this module and the PyDAQmx module are stored
-        #: in the keys ``'pynidaqutils'`` and ``'PyDAQmx'``
-        #: respectively.
+        #: The versions of this module, PyDAQmx, and paramiko are
+        #: stored in the keys ``'pynidaqutils'``, ``'PyDAQmx'``, and
+        #: ``'paramiko'`` respectively.
         #:
-        self.versions = dict()
-        for line in output.splitlines():
-            index = line.find(':')
-            if index != -1:
-                self.versions[line[:index]] = line[(index + 2):]
+        self.versions = {'pynidaqutils': __version}
+        if have_PyDAQmx:
+            self.versions['PyDAQmx'] = PyDAQmx.__version__
+        if have_paramiko:
+            self.versions['paramiko'] = paramiko.__version__
 
-        # We need a handle for the daq server.
+        # Need variables to hold the host and port of the server.
+        self._host = None
+        self._port = None
+
+        # We need a handle for the daq server and its pipes if run over
+        # paramiko.
         self._server = None
+        self._server_pipes = {'stdin': None, 'stdout': None,
+                              'stderr': None}
 
         # We need handles for the client and a thread to run
         # asyncore.loop so that the client will operate.
@@ -1543,15 +1542,62 @@ class DaqInterface(object):
         """
         return (self.client is not None and self.client.is_acquiring)
 
-    def start_server(self):
+    def start_server(self, host='localhost', port=_default_port,
+                     python_command='python3', username=None,
+                     password=None):
         """ Start the server.
+
+        Starts the server on this machine, or another machine with SSH
+        accesss on port 22.
+
+        Parameters
+        ----------
+        host : str, optional
+            The hostname of the machine to run the server on. Must
+            either be ``'localhost'`` for this machine, an IP address,
+            or a domain name address. If it is another machine, the
+            machine must have a running SSH server on port 22 and
+            `username` and `password` must be set to the username
+            and password to use to log in to it.
+        port : int, optional
+            The port for the server to run on. Should be greater than
+            1024 to not clash with reserved ports.
+        python_command : str, optional
+            The command to run the python executable that is desired
+            to use to run the server with.
+        username : str, optional
+            The username to use when logging into another machine by
+            SSH when `host` is not ``'localhost'``. Required if
+            connecting to another machine.
+        password : str, optional
+            The password to use when logging into another machine by
+            SSH when `host` is not ``'localhost'``. Required if
+            connecting to another machine.
 
         Returns
         -------
-        success : bool
-            Whether the server was started or not (was already
-            started).
+        output : None or dict
+            ``None`` if a server is already running. Otherwise, it is a
+            ``dict`` with the versions of this module, PyDAQmx, and
+            paramiko on `host` stored in the keys ``'pynidaqutils'``,
+            ``'PyDAQmx'``, and ``'paramiko'`` respectively.
 
+        Raises
+        ------
+        paramiko.BadHostKeyException
+            If the server’s host key could not be verified.
+        paramiko.AuthenticationException
+            If authentication failed.
+        paramiko.SSHException
+            If there was any other error connecting or establishing an
+            SSH session or if the SSH server fails to be able to
+            execute `python_command`.
+        socket.error
+            If a socket error occurred while connecting.
+        OSError
+            If `python_command` cannot be found and executed on this
+            machine.
+        
         See Also
         --------
         stop_server
@@ -1560,14 +1606,59 @@ class DaqInterface(object):
 
         """
         if self._server is not None:
-            return False
+            return None
 
-        self._server = subprocess.Popen([self._daq_program_path],
-                                        stdin=subprocess.PIPE,
-                                        stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE,
-                                        universal_newlines=True)
-        return True
+        # Copy over host and port.
+        self._host = host
+        self._port = port
+
+        # How the server is opened depends on whether it is going to run
+        # on this machine ('localhost') or another one. The first line
+        # of output, which has all the version information needs to be
+        # grabbed.
+        if host == 'localhost':
+            self._server = subprocess.Popen([python_command, '-m', \
+                __name__, '--host', 'localhost', '--port', str(port)], \
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, \
+                stderr=subprocess.PIPE, universal_newlines=True)
+            output = Popen.readline()
+        else:
+            # Absolutely must have paramiko.
+            if not have_paramiko:
+                raise ImportError('Could not import paramiko')
+
+            # Need to connect to the target machine by SSH and run
+            # basically the same command. Now, if there is an error, the
+            # ssh client needs to be closed if it was opened before the
+            # error is re-raised.
+            try:
+                self._server = paramiko.SSHClient()
+                self._server.connect(host, username=username,
+                                     password=password)
+                self._server_pipes['stdin'], \
+                    self._server_pipes['stdout'], \
+                    self._server_pipes['stderr'] \
+                    = self._server.exec_command( \
+                    python_command + ' -m ' + __name__ \
+                    + ' --host all --port ' + str(port))
+                output = self._server_pipes['stdout'].readline()
+            except:
+                if self._server is not None:
+                    self._server.close()
+                    self._server = None
+                raise
+
+        # We need to make a dict of the versions of each part of the
+        # output, which is of the form
+        # 'package1: version1, package2: version2\n'.
+        versions = dict()
+        for pck in output.strip().split(', '):
+            parts = pck.split(': ')
+            versions[parts[0]] = parts[1]
+
+        # Return the versions.
+        return versions
+
 
     def stop_server(self, timeout=None):
         """ Stop the server.
@@ -1599,14 +1690,32 @@ class DaqInterface(object):
         # Stop the client if it is there.
         self.stop_client(timeout=timeout)
 
-        # Send the close command on the server's stdin. A timeout is
-        # only supported for python >= 3.3.
-        if sys.hexversion < 0x3030000:
-            outputs = self._server.communicate(input='close\n',
-                                               timeout=timeout)
+        # Send the close command on the server's stdin and read the
+        # response. How that is done depends on whether it was run
+        # locally with a Popen or remotely with paramiko.
+        if self._host == 'localhost':
+            # A timeout is only supported for python >= 3.3.
+            if sys.hexversion < 0x3030000:
+                outputs = self._server.communicate(input='close\n',
+                                                   timeout=timeout)
+            else:
+                outputs = self._server.communicate(input='close\n')
         else:
-            outputs = self._server.communicate(input='close\n')
+            self._server_pipes['stdin'].write('close\n')
+            self._server_pipes['stdin'].flush()
+            try:
+                outputs = (self._server_pipes['stdout'].read(), None)
+            except:
+                outputs = ('', None)
 
+            # Close everything.
+            for k in self._server_pipes:
+                self._server_pipes[k].close()
+                self._server_pipes[k] = None
+            self._server.close()
+
+        # Reset _server and return whether the closing was a success or
+        # not.
         self._server = None
         return ('closed' in outputs[0].lower())
 
@@ -1628,7 +1737,7 @@ class DaqInterface(object):
         """
         if self._server is None or self.client is not None:
             return False
-        self.client = DaqClient()
+        self.client = DaqClient(host=self._host, port=self._port)
         self._socket_thread = threading.Thread( \
             target=lambda : asyncore.loop(timeout=1.0))
         self._socket_thread.start()
@@ -1676,8 +1785,8 @@ if __name__ == '__main__' :
         both. Send 'close\\n' on stdin to close it.
         """)
     parser.add_argument('-v', '--version', action='store_true',
-                        help='return the version of this program and '
-                        + 'PyDAQmx')
+                        help='return the version of this program, '
+                        + 'PyDAQmx, and paramiko')
     parser.add_argument('--host', choices=['localhost', 'all'],
                         default=_default_host,
                         help='where to listen for connections '
@@ -1689,12 +1798,20 @@ if __name__ == '__main__' :
                         help='print comminications to stdout')
     args = parser.parse_args()
 
+    # Load the version information for all the relevant modules into a
+    # list. We will need only be able to get the PyDAQmx and paramiko
+    # versions if they were able to be imported.
+    versions = ['pynidaqutils: ' + pynidaqutils.__version]
+    if have_PyDAQmx:
+        versions.append('PyDAQmx: ' + PyDAQmx.__version__)
+    if have_paramiko:
+        versions.append('paramiko: ' + paramiko.__version__)
+
     # Display version information if asked (and then exit). We will need
     # to load the PyDAQmx module if possible and print its version.
     if args.version:
-        print('pynidaqutils: ' + pynidaqutils.__version__)
-        if have_PyDAQmx:
-            print('PyDAQmx: ' + PyDAQmx.__version__)
+        for v in versions:
+            print(v)
         exit(0)
 
     # Run the daq server. If there is an import error, we need to write
@@ -1710,6 +1827,9 @@ if __name__ == '__main__' :
         sys.stderr.write('Couldn''t import PyDAQmx.\n')
         sys.stderr.write('Exit 1\n')
         exit(1)
+
+    # Write the versions to stdout with comma separation.
+    sys.stdout.write(', '.join(versions) + '\n')
 
     # Make a thread to run the server, and then wait for the close
     # command to be received on stdin.
