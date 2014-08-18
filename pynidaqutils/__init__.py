@@ -26,7 +26,7 @@
 
 """ Module for finding attatched NI DAQ's and describing them.
 
-Version 0.1.1
+Version 0.2
 
 Attributes
 ----------
@@ -43,7 +43,7 @@ hw_info : dict of dicts
 
 """
 
-__version__ = "0.1.1"
+__version__ = "0.2"
 
 
 import subprocess
