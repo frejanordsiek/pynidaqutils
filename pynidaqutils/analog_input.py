@@ -1423,8 +1423,6 @@ class DaqInterface(object):
     ----------
     client : DaqClient or None
         The running ``DaqClient`` or ``None``.
-    daq_program_path : str
-        The path to this module, which is needed to start a server.
     is_acquiring : bool
     is_client_running : bool
     is_server_running : bool
@@ -1439,10 +1437,7 @@ class DaqInterface(object):
 
     """
     def __init__(self):
-        #: The path to this module, which is needed to start a server.
-        #:
-        #: str
-        #:
+        # The path to this module, which is needed to start a server.
         self._daq_program_path = __file__
 
         # We need to grab all the version information from daq_program,
