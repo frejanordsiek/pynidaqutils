@@ -66,6 +66,30 @@ except:
 _default_host = 'localhost'
 _default_port = 8163
 
+# Make a function that if a string to ascii bytes if it is not
+# already. The method is python version dependent.
+def _convert_to_ascii(s):
+    if sys.hexversion >= 0x3000000:
+        if isinstance(s, str):
+            return s.encode()
+        else:
+            return s
+    else:
+        if isinstance(s, unicode):
+            return s.encode()
+        else:
+            return s
+
+# Make a function that if the str type if it is not already. The method
+# is python version dependent.
+def _convert_to_str(s):
+    if isinstance(s, str):
+        return s
+    elif sys.hexversion >= 0x3000000:
+        return s.decode()
+    else:
+        return s.encode()
+
 
 class ReadAnalogInputThread(threading.Thread):
     """ Thread to read analog input data from the DAQ on the server.
@@ -356,7 +380,7 @@ class DaqAsynchat(asynchat.async_chat):
         """ Wrapper with locking for async_chat method.
 
         Wraps ``asynchat.async_chat.initiate_send`` in a lock.
-        
+
         See Also
         --------
         asynchat.async_chat.initiate_send
@@ -400,7 +424,7 @@ class DaqAsynchat(asynchat.async_chat):
         # Dispatch input lines till there are none left.
         for line in parts:
             if self._debug_communications:
-                print('[received] ' + line[:60].decode())
+                print('[received] ' + _convert_to_str(line[:60]))
             self.process_input_line(line)
 
     def push_line(self, line):
@@ -423,8 +447,8 @@ class DaqAsynchat(asynchat.async_chat):
 
         """
         if self._debug_communications:
-            print('[sent] ' + line[:60].decode())
-        self.push(line + self._term)
+            print('[sent] ' + _convert_to_str(line[:60]))
+        self.push(_convert_to_ascii(line) + self._term)
 
     def push_lines(self, lines):
         """ Write a bunch of lines of text to the socket one at a time.
