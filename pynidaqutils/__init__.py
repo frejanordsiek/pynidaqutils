@@ -70,8 +70,10 @@ def list_daqs():
     # Run lsdaq to get the DAQ's. If an exception occurs, then we didn't
     # find any.
     try:
-        output = subprocess.check_output('lsdaq',
-                                         universal_newlines=True)
+        popen = subprocess.Popen(['lsdaq'], stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT,
+                                 universal_newlines=True)
+        (output, err) = popen.communicate()
     except:
         return []
 
