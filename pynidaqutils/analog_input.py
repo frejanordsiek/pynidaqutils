@@ -47,6 +47,7 @@ import subprocess
 import math
 import datetime
 import binascii
+import ast
 
 import numpy as np
 
@@ -640,12 +641,14 @@ class DaqServerHandler(DaqAsynchat):
         if line == b'Scan':
             # If acquisition is going on, the DAQs cannot be scanned and
             # so an error message must be returned. Otherwise, they can
-            # be scanned and success reported.
+            # be scanned and success reported along with the string
+            # representation of _daq_list.
             if self.acquiring:
                 self.push_line(b'Error:Scan: acquiring.')
             else:
                 self._scan_daqs()
-                self.push_line(b'Scan successful.')
+                self.push_line(b'Scan successful: ' \
+                    + _convert_to_ascii(repr(self._daq_list)))
         elif line == b'Start':
             # Start aquisition. If acquisition is already happening or
             # the DAQ is not setup yet, return an error message.
@@ -987,6 +990,7 @@ class DaqClient(DaqAsynchat):
 
     Attributes
     ----------
+    daq_list : dict of dicts
     is_acquiring : bool
     start_time : list of floats
 
@@ -1037,6 +1041,32 @@ class DaqClient(DaqAsynchat):
 
         # Need an array to hold the start time.
         self._start_time = None
+
+        # The initial daq list is just an empty dictionary.
+        self._daq_list = dict()
+
+    @property
+    def daq_list(self):
+        """ The DAQ's on the server.
+
+        dict of dicts
+
+        The DAQ's on the server the last time ``scan_daqs`` was
+        called. It is the output of ``pynidaqutils.list_daqs`` on the
+        server, which is
+
+        The attached DAQ's with their device ID's (such as ``'Dev1'``)
+        as keys. Each one is a ``dict`` that has 'type' and 'hw' which
+        are the DAQ type (such as ``'NI USB-6211'``) and additional
+        hardware information respectively.
+
+        See Also
+        --------
+        scan_daqs
+        pynidaqutils.list_daqs
+
+        """
+        return copy.deepcopy(self._daq_list)
 
     @property
     def is_acquiring(self):
@@ -1116,8 +1146,22 @@ class DaqClient(DaqAsynchat):
             the newline, ``'\\n'``.
 
         """
-        if line == b'Scan successful.':
-            self._scan_error_event.clear()
+        if line.startswith(b'Scan successful: '):
+            # Read the output of list_daqs on the server into
+            # _daq_list. If there is an error, it should be set to
+            # empty. The error event should only be cleared if it can be
+            # processed without error.
+            #
+            # ast.literal_eval is used since it is safe unlike plain
+            # eval. It does not run through the interpreter like eval
+            # does and thus does not allow arbitrary code exectution. It
+            # can only read literals, and is thus safe.
+            try:
+                self._daq_list = \
+                    ast.literal_eval(_convert_to_str(line[17:]))
+                self._scan_error_event.clear()
+            except:
+                self._daq_list = dict()
             self._scan_finished_event.set()
         elif line == b'Stop successful.':
             self._stop_error_event.clear()
