@@ -102,7 +102,10 @@ class ReadAnalogInputThread(threading.Thread):
     """ Thread to read analog input data from the DAQ on the server.
 
     It calls functions on `server` directly to transmit data and
-    messages to the client. Thread is aborted by calling ``abort``.
+    messages to the client. Thread is aborted by calling ``abort``. Note
+    that the averaged data is transmitted, not the raw data. Also, the
+    left over values at the end that are not included in an averaged
+    value are discarded.
 
     Parameters
     ----------
@@ -120,6 +123,9 @@ class ReadAnalogInputThread(threading.Thread):
         The number of channels being acquired on.
     frequency : float
         The acquisition frequency.
+    averaged : int
+        The number of successive samples per channel to average together
+        before transmitting to the client.
     samples_at_a_time : int
         The number of samples in each channel to transmit in each block
         back to the client.
@@ -133,8 +139,8 @@ class ReadAnalogInputThread(threading.Thread):
 
     """
     def __init__(self, analog_input, server, device, interval,
-                 number_channels, frequency, samples_at_a_time,
-                 convert_to_single):
+                 number_channels, frequency, averaged,
+                 samples_at_a_time, convert_to_single):
         #multiprocessing.Process.__init__(self)
         threading.Thread.__init__(self)
         self.analog_input = analog_input
@@ -143,18 +149,21 @@ class ReadAnalogInputThread(threading.Thread):
         self.interval = interval
         self.number_channels = number_channels
         self.frequency = frequency
+        self.averaged = averaged
         self.samples_at_a_time = samples_at_a_time
         self.convert_to_single = convert_to_single
         # Start out with an empty trigger time.
         self._trigger_time = []
-        # Start out with an empty buffer of read values.
+        # Start out with empty buffers of read values and averaged read
+        # values.
         self._buf = np.empty(shape=(0, number_channels),
-                             dtype={True: 'float32',
-                             False: 'float64'}[convert_to_single])
-        # Keep track of the number of samples read and the index of the
-        # sample at the beginning of the buffer.
-        self._number_samples = 0
-        self._begin_buf_sample_number = 0
+                             dtype='float64')
+        self._averaged_buf = np.empty(shape=(0, number_channels),
+                                      dtype='float64')
+        # Keep track of the number of samples averaged, and the indiex
+        # of the sample at the beginning of the averaged buffer.
+        self._number_averaged_samples = 0
+        self._begin_averaged_buf_sample_number = 0
         # Need a flag to be able to know when to abort.
         self._abort_now = False
 
@@ -255,21 +264,48 @@ class ReadAnalogInputThread(threading.Thread):
         # needs to be converted to a normal int.
         number_read = number_read.value
 
-        # If any samples were read, then we need to increment the
-        # counter for the number that have been read, change the shape
-        # of data so that each row is a sample time and each column is a
-        # channel, and then add it to the end of the buffer (converting
-        # to single precision if instructed.
+        # If any samples were read, change the shape of data so that
+        # each row is a sample time and each column is a channel, and
+        # then add it to the end of the buffer. Then, we need to
+        # construct the running averaged samples and append them to the
+        # proper buffer.
         if number_read != 0:
-            self._number_samples += number_read
             data.shape = (n//self.number_channels,
                           self.number_channels)
-            if self.convert_to_single:
-                self._buf = np.vstack((self._buf, \
-                    np.float32(data[0:number_read,:])))
+            self._buf = np.vstack((self._buf, data[0:number_read,:]))
+
+            # If averaged is just equal to 1, then it is easy and all
+            # that needs to be done is moving _buf to the end of
+            # _averaged_buf, making _buf empty, and adding the number of
+            # read samples to _number_averaged_samples. Otherwise, we
+            # actually have to do averaging.
+            if self.averaged == 1:
+                self._number_averaged_samples += number_read
+                self._averaged_buf = np.vstack((self._averaged_buf,
+                                               self._buf))
+                self._buf = np.empty(shape=(0, number_channels),
+                             dtype='float64')
             else:
-                self._buf = np.vstack((self._buf,
-                                      data[0:number_read,:]))
+                # We can only average together whole groups, so we need
+                # to know how many we have.
+                n = np._buf.shape[0] // self.averaged
+                self._number_averaged_samples += n
+
+                # Make an array for all the averaged groups and do the
+                # averages group by group.
+                avgs = np.empty(shape=(n, number_channels),
+                                dtype='float64')
+                for i in range(0, n):
+                    slc = slice(i * self.averaged,
+                                (i + 1) * self.averaged)
+                    avgs[i, :] = self._buf[slc, :].mean(axis=0)
+
+                # Add the averages onto the averaged buffer and make
+                # _buf be only the remaining samples.
+                self._averaged_buf = np.vstack((self._averaged_buf,
+                                               avgs))
+                self._buf = self._buf[(n * self.averaged):, :].copy()
+
 
     def transmit_data(self, write_all):
         """ Transmit acquired data to the client.
@@ -288,21 +324,23 @@ class ReadAnalogInputThread(threading.Thread):
         # are to write at a time, remove a block of the first set of
         # samples, transmit it, and then increment the sample number
         # counter for the buffer.
-        while self._buf.shape[0] >= self.samples_at_a_time:
-            block = self._buf[:self.samples_at_a_time, :]
-            self._buf = self._buf[self.samples_at_a_time:, :]
-            self._transmit_block(block, self._begin_buf_sample_number)
-            self._begin_buf_sample_number += block.shape[0]
+        while self._averaged_buf.shape[0] >= self.samples_at_a_time:
+            block = self._averaged_buf[:self.samples_at_a_time, :]
+            self._averaged_buf = \
+                  self._averaged_buf[self.samples_at_a_time:, :]
+            self._transmit_block(block, \
+                self._begin_averaged_buf_sample_number)
+            self._begin_averaged_buf_sample_number += block.shape[0]
 
         # If we are writing everything and there is still data in the
         # buffer, write the rest of it and clear the buffer.
         if write_all and self._buf.shape[0] > 0:
-            self._transmit_block(self._buf,
-                                 self._begin_buf_sample_number)
-            self._begin_buf_sample_number += self._buf.shape[0]
-            self._buf = np.empty(shape=(0, number_channels),
-                             dtype={True: 'float32',
-                             False: 'float64'}[self.convert_to_single])
+            self._transmit_block(self._averaged_buf,
+                                 self._begin_averaged_buf_sample_number)
+            self._begin_averaged_buf_sample_number \
+                += self._averaged_buf.shape[0]
+            self._averaged_buf = np.empty(shape=(0, number_channels),
+                                          dtype='float64')
 
     def _transmit_block(self, block, n):
         """ Transmit one block of data to the client.
@@ -318,6 +356,10 @@ class ReadAnalogInputThread(threading.Thread):
             beginning of acquisition (zero indexed).
 
         """
+        # Convert to single precision if required.
+        if self.convert_to_single:
+            block = np.float32(block)
+
         # The data to write looks like
         #
         # b'Data:ENDIANNESS:xN:xNUM: YYYYYYYYYYYYYYYYYYYYY'
@@ -605,7 +647,7 @@ class DaqServerHandler(DaqAsynchat):
 
         # We don't have a DAQ selected yet, so we start with a blank
         # config.
-        self._daq_config = (b'No DAQ config.', b'', 0.0, 0,
+        self._daq_config = (b'No DAQ config.', b'', 0.0, 0, 0,
                             b'', [])
 
         # Need to hold the analog input task.
@@ -725,9 +767,10 @@ class DaqServerHandler(DaqAsynchat):
                         b'NRSE': PyDAQmx.DAQmx_Val_NRSE}
         device = self._daq_config[1]
         freq = self._daq_config[2]
-        count = self._daq_config[3]
-        output_type = self._daq_config[4]
-        channels = self._daq_config[5]
+        averaged = self._daq_config[3]
+        count = self._daq_config[4]
+        output_type = self._daq_config[5]
+        channels = self._daq_config[6]
 
         # Reset the device.
         PyDAQmx.DAQmxResetDevice(device)
@@ -767,7 +810,7 @@ class DaqServerHandler(DaqAsynchat):
         # Make the acquiring thread with the calculated interval.
         self._acquire_thread = ReadAnalogInputThread( \
             self._analog_input, self, device, thread_interval,
-                 len(channels), freq,
+                 len(channels), freq, averaged,
                  int(math.ceil(thread_interval*freq)),
                  (output_type == b'single'))
 
@@ -781,7 +824,10 @@ class DaqServerHandler(DaqAsynchat):
 
         ``b'Setup: DEV FREQUENCY COUNT TYPE CH1 CH2 CH3\\n'``
 
-        where DEV is the Device name, FREQUENCY is the sample frequency,
+        where DEV is the Device name, FREQUENCY looks like ``b'FREQ:A'``
+        where FREQ (positive floating point) is the acquisition
+        frequency and A (positive integer) is the number of samples from
+        each channel to average together to make a returned sample,
         COUNT is the number of samples to take (or ``b'-1'`` to take
         continuously), TYPE is the floating point type to send  data in
         (``b'single'`` or ``b'double'``), and CH1 ... are the channel
@@ -789,7 +835,8 @@ class DaqServerHandler(DaqAsynchat):
         the channel number, V is the expected voltage range (+/-), and
         TERM is the input termination and must be either ``b'Diff'``
         (differential), ``b'RSE'`` (Reference Single Ended), or
-        ``b'NRSE'`` (Non-Referenced Single Ended).
+        ``b'NRSE'`` (Non-Referenced Single Ended). Note that unless
+        COUNT is -1, it must be divisible by A.
 
         Invalid inputs, channels outside of the device's range,
         duplicate channels (including mixed differential and single
@@ -812,6 +859,12 @@ class DaqServerHandler(DaqAsynchat):
             The acquisition frequency the DAQ will be run at (sample
             frequency will be this times the number of channels being
             acquired from).
+        averaged : int
+            The number of samples in a row from each channel to average
+            together before returning a sample. For example, for a value
+            of 10, samples are acquired in blocks of 10 that are then
+            averaged together before returning the averages to the
+            client.
         count : int
             Number of samples to take from each channel. -1 denotes
             acquiring forever (infinity).
@@ -833,34 +886,47 @@ class DaqServerHandler(DaqAsynchat):
         # If we don't have at least 5 parts and the first one is not
         # 'Setup:', then it is invalid.
         if len(parts) < 6:
-            return (b'Invalid: missing parts.', b'', 0.0, 0, b'', [])
+            return (b'Invalid: missing parts.', b'', 0.0, 0, 0, b'', [])
         if parts[0] != b'Setup:':
             return (b"Invalid: didn't start with 'Setup:'.", b'',
-                    0.0, 0, b'', [])
+                    0.0, 0, 0, b'', [])
 
         # Get the device, read the frequency (handle conversion errors),
         # read the count (handle conversion errors), and the
         # type. Errors mean that it was invalid.
         device = parts[1]
         try:
-            frequency = float(parts[2])
+            freq_parts = parts[2].split(b':')
+            frequency = float(freq_parts[0])
+            averaged = int(freq_parts[1])
         except:
-            return (b"Invalid: invalid sample frequency: '"
-                    + parts[2] + "'.", b'', 0.0, 0, b'', [])
+            return (b"Invalid: invalid sample frequency or averaged: '"
+                    + parts[2] + "'.", b'', 0.0, 0, 0, b'', [])
         try:
             count = int(parts[3])
         except:
             return (b"Invalid: invalid count: '"
-                    + parts[3] + "'.", b'', 0.0, 0, b'', [])
+                    + parts[3] + "'.", b'', 0.0, 0, 0, b'', [])
         tp = parts[4]
         if tp not in (b'single', b'double'):
             return (b"Invalid: invalid type: '"
-                    + parts[4] + "'.", b'', 0.0, 0, b'', [])
+                    + parts[4] + "'.", b'', 0.0, 0, 0, b'', [])
 
         # Check that count is positive or -1.
         if count < 1 and count != -1:
             return (b'Invalid: count ' + _convert_to_ascii(str(count))
-                    + b' must be positive or -1.', b'', 0.0, 0, b'', [])
+                    + b' must be positive or -1.',
+                    b'', 0.0, 0, 0, b'', [])
+
+        # Check that averaged is positive and that if count is not -1,
+        # it is divisible by averaged.
+        if averaged <= 0:
+            return (b'Invalid: averaged '
+                    + _convert_to_ascii(str(averaged))
+                    + b'must be positive.', b'', 0.0, 0, 0, b'', [])
+        if count != -1 and count % averaged != 0:
+            return (b'Invalid: count must be divisible by averaged.',
+                    b'', 0.0, 0, 0, b'', [])
 
         # Parse the provided channels and make a list of them in order
         # one by one. Exceptions are used to say what is wrong.
@@ -878,7 +944,7 @@ class DaqServerHandler(DaqAsynchat):
             # If we don't have three parts, it is definitely invalid.
             if len(channel_split) != 3:
                 return (b"Invalid: invalid channel: '"
-                        + channel + "'.", b'', 0.0, 0, b'', [])
+                        + channel + "'.", b'', 0.0, 0, 0, b'', [])
 
             # Extract the parameters for this channel. An exception
             # means it is invalid.
@@ -889,7 +955,7 @@ class DaqServerHandler(DaqAsynchat):
                       'termination': channel_split[2]}
             except:
                 return (b"Invalid: invalid channel: '"
-                        + channel + "'.", b'', 0.0, 0, b'', [])
+                        + channel + "'.", b'', 0.0, 0, 0, b'', [])
 
             # Check that the channel is non-negative, the voltage is
             # positive, and the termination is one of the allowed values.
@@ -897,7 +963,7 @@ class DaqServerHandler(DaqAsynchat):
                     or ch['termination'] not in (b'Diff', b'RSE', \
                     b'NRSE'):
                 return (b"Invalid: invalid channel: '"
-                        + channel + "'.", b'', 0.0, 0, b'',[])
+                        + channel + "'.", b'', 0.0, 0, 0, b'',[])
             channels.append(ch)
 
         # Check to make sure the given device name is one of them (it is
@@ -906,7 +972,7 @@ class DaqServerHandler(DaqAsynchat):
             return (b"Invalid: device '" + device + b"' not among " \
                 + b'available devices: ' \
                 + _convert_to_ascii(str(list(self._daq_list.keys()))) \
-                + b'.', b'', 0.0, 0, b'', [])
+                + b'.', b'', 0.0, 0, 0, b'', [])
 
         # Grab the hardware info for this DAQ.
         daq_info = pynidaqutils.hw_info[self._daq_list[ \
@@ -921,7 +987,7 @@ class DaqServerHandler(DaqAsynchat):
                 + b' not in the range (0.0, ' \
                 + _convert_to_ascii(str(daq_info[ \
                 'max_sample_frequency'])) \
-                + b'].', b'', 0.0, 0, b'', [])
+                + b'].', b'', 0.0, 0, 0, b'', [])
 
         # Make a list of all the channel numbers on the device that will
         # be used. For single ended channels, it is just the specified
@@ -939,13 +1005,13 @@ class DaqServerHandler(DaqAsynchat):
         # channels, which will result in a set of a different length.
         if len(channel_nums) != len(set(channel_nums)):
             return (b'Invalid: duplicate channels.', b'', 0.0, 0,
-                    b'', [])
+                    0, b'', [])
 
         # Check to make sure that none of the channels are negative.
         if min(channel_nums) < 0:
             return (b'Invalid: negative channel '
                     + _convert_to_ascii(str(min(channel_nums)))
-                    + b'.', b'', 0.0, 0, b'', [])
+                    + b'.', b'', 0.0, 0, 0, b'', [])
 
         # Check to make sure that none of the channels are above the
         # maximum range (total available minus 1).
@@ -954,7 +1020,7 @@ class DaqServerHandler(DaqAsynchat):
                     + _convert_to_ascii(str(max(channel_nums)))
                     + b' when the highest available one is '
                     + _convert_to_ascii(str(daq_info['ai'] - 1))
-                    + b'.', b'', 0.0, 0, b'', [])
+                    + b'.', b'', 0.0, 0, 0, b'', [])
 
         # Check to make sure that none of the maximum expected voltages
         # are greater than what the DAQ can handle.
@@ -963,10 +1029,10 @@ class DaqServerHandler(DaqAsynchat):
             return (b"Invalid: DAQ can't handle voltage "
                     + _convert_to_ascii(str(max_voltage) + ' > '
                     + str(max(daq_info['voltages']))) + b'.',
-                    b'', 0.0, 0, b'', [])
+                    b'', 0.0, 0, 0, b'', [])
 
         # Its valid, so return everything.
-        return (b'', device, frequency, count, tp,
+        return (b'', device, frequency, averaged, count, tp,
                 channels)
 
 
@@ -1406,8 +1472,8 @@ class DaqClient(DaqAsynchat):
         self._exit_finished_event.wait(timeout)
         self.close_when_done()
 
-    def setup_daq(self, device, frequency, count, tp, channels,
-                  timeout=None):
+    def setup_daq(self, device, frequency, averaged, count, tp,
+                  channels, timeout=None):
         """ Sends a DAQ setup to the server.
 
         Sends a DAQ setup to the server.
@@ -1420,9 +1486,15 @@ class DaqClient(DaqAsynchat):
             The acquisition frequency the DAQ will be run at (sample
             frequency will be this times the number of channels being
             acquired from).
+        averaged : int
+            The number of successive samples from each channel to
+            average together before the averaged samples are returned
+            from the server. Must be positive. `count` must be
+            divisble by `averaged` unless `count` is -1.
         count : int
             Number of samples to take from each channel. -1 denotes
-            acquiring forever (infinity).
+            acquiring forever (infinity). Unless its value is -1, it
+            must be divisible by `averaged`.
         tp : {b'single', b'double'}
             The floating point precision that the acquired data will be
             sent to the read in. ``b'single'`` and ``b'double'``
@@ -1453,7 +1525,8 @@ class DaqClient(DaqAsynchat):
 
         """
         # Make the daq config structure that all of this implies.
-        daq_conf = [b'', device, frequency, count, tp, channels]
+        daq_conf = [b'', device, frequency, averaged, count, tp,
+                    channels]
 
         # Construct the channels strings.
         channel_strings = []
@@ -1464,14 +1537,15 @@ class DaqClient(DaqAsynchat):
                 _convert_to_str(ch['termination'])])))
 
         # Make the command to send. This consists of adding the device,
-        # frequency (as a string), count (as a string), the type, and
-        # all the channel strings together with a space between them
-        # all.
+        # frequency string (b'FREQUENCY:AVERAGED'), count (as a string),
+        # the type, and all the channel strings together with a space
+        # between them all.
         parts = [b'Setup:']
-        parts.extend(daq_conf[1:-1])
+        parts.append(device)
+        parts.append(_convert_to_ascii(str(daq_conf[2]) + ':'
+                     + str(daq_conf[3])))
+        parts.extend([_convert_to_ascii(str(count)), tp])
         parts.extend(channel_strings)
-        parts[2] = _convert_to_ascii(str(parts[2]))
-        parts[3] = _convert_to_ascii(str(parts[3]))
         command = b' '.join(parts)
 
         # Reset the event, send the command, and wait till we get a
