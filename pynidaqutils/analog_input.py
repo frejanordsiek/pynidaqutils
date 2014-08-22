@@ -811,7 +811,7 @@ class DaqServerHandler(DaqAsynchat):
         self._acquire_thread = ReadAnalogInputThread( \
             self._analog_input, self, device, thread_interval,
                  len(channels), freq, averaged,
-                 int(math.ceil(thread_interval*freq)),
+                 max(1, int(math.ceil(thread_interval*freq/averaged))),
                  (output_type == b'single'))
 
         # Start the thread. It will start the acquisition.
