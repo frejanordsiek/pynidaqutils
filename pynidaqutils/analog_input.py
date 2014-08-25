@@ -288,7 +288,7 @@ class ReadAnalogInputThread(threading.Thread):
             else:
                 # We can only average together whole groups, so we need
                 # to know how many we have.
-                n = np._buf.shape[0] // self.averaged
+                n = _buf.shape[0] // self.averaged
                 self._number_averaged_samples += n
 
                 # Make an array for all the averaged groups and do the
