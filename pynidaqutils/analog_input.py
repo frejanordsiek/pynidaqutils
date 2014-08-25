@@ -283,7 +283,7 @@ class ReadAnalogInputThread(threading.Thread):
                 self._number_averaged_samples += number_read
                 self._averaged_buf = np.vstack((self._averaged_buf,
                                                self._buf))
-                self._buf = np.empty(shape=(0, number_channels),
+                self._buf = np.empty(shape=(0, self.number_channels),
                              dtype='float64')
             else:
                 # We can only average together whole groups, so we need
@@ -293,7 +293,7 @@ class ReadAnalogInputThread(threading.Thread):
 
                 # Make an array for all the averaged groups and do the
                 # averages group by group.
-                avgs = np.empty(shape=(n, number_channels),
+                avgs = np.empty(shape=(n, self.number_channels),
                                 dtype='float64')
                 for i in range(0, n):
                     slc = slice(i * self.averaged,
@@ -339,7 +339,8 @@ class ReadAnalogInputThread(threading.Thread):
                                  self._begin_averaged_buf_sample_number)
             self._begin_averaged_buf_sample_number \
                 += self._averaged_buf.shape[0]
-            self._averaged_buf = np.empty(shape=(0, number_channels),
+            self._averaged_buf = np.empty(shape=(0,
+                                          self.number_channels),
                                           dtype='float64')
 
     def _transmit_block(self, block, n):
@@ -369,7 +370,7 @@ class ReadAnalogInputThread(threading.Thread):
         # block written in hexidecimal, and YYYYYYYYYYYYYYYYYYY is all
         # the bytes in block converted to hexidecimal.
         self.server.push_line(b'Data:' + _convert_to_ascii( \
-            + sys.byteorder + ':'  + hex(n) + ':' \
+            sys.byteorder + ':'  + hex(n) + ':' \
             + hex(block.shape[0])) + b': ' \
             + binascii.hexlify(block.flatten().tostring()))
 
