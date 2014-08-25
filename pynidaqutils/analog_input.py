@@ -320,14 +320,18 @@ class ReadAnalogInputThread(threading.Thread):
             data if there is any.
 
         """
+        # We need the number of raw samples to send at a time when we
+        # only have the averaged. But it can be computed.
+        block_size = int(max(1, np.floor(float(self.samples_at_a_time)
+                         / float(self.averaged))))
         # As long as the buffer is longer than the number of samples we
         # are to write at a time, remove a block of the first set of
         # samples, transmit it, and then increment the sample number
         # counter for the buffer.
-        while self._averaged_buf.shape[0] >= self.samples_at_a_time:
-            block = self._averaged_buf[:self.samples_at_a_time, :]
+        while self._averaged_buf.shape[0] >= block_size:
+            block = self._averaged_buf[:block_size, :]
             self._averaged_buf = \
-                  self._averaged_buf[self.samples_at_a_time:, :]
+                  self._averaged_buf[block_size:, :]
             self._transmit_block(block, \
                 self._begin_averaged_buf_sample_number)
             self._begin_averaged_buf_sample_number += block.shape[0]
