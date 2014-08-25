@@ -1058,6 +1058,12 @@ class DaqClient(DaqAsynchat):
     port : int, optional
         The port to accept connections from. Should be greater than
         1024 to avoid clashing with reserved ports.
+    debug_communications : bool, optional
+        Whether to debug communications over the socket by printing
+        sent and received text to standard output. The first 60
+        characters are printed along with a prefix of ``'[sent] '``
+        and ``'[received] '`` for sent and received text
+        respectively.
 
     Attributes
     ----------
