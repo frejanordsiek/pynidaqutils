@@ -288,7 +288,7 @@ class ReadAnalogInputThread(threading.Thread):
             else:
                 # We can only average together whole groups, so we need
                 # to know how many we have.
-                n = _buf.shape[0] // self.averaged
+                n = self._buf.shape[0] // self.averaged
                 self._number_averaged_samples += n
 
                 # Make an array for all the averaged groups and do the
@@ -812,7 +812,7 @@ class DaqServerHandler(DaqAsynchat):
         self._acquire_thread = ReadAnalogInputThread( \
             self._analog_input, self, device, thread_interval,
                  len(channels), freq, averaged,
-                 max(1, int(math.ceil(thread_interval*freq/averaged))),
+                 max(1, int(math.ceil(thread_interval*freq))),
                  (output_type == b'single'))
 
         # Start the thread. It will start the acquisition.
