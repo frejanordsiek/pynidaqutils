@@ -38,7 +38,7 @@ stopping a server and a client.
 import copy
 import sys
 import ctypes
-import argparse
+import optparse
 import socket
 import asyncore
 import asynchat
@@ -1908,26 +1908,29 @@ class DaqInterface(object):
 
 # Not doing anything unless this is being run as a program.
 if __name__ == '__main__' :
-    parser = argparse.ArgumentParser(description="""Starts a server
-        for interacting with a National Instruments DAQ listening
-        to the specified port on the indicated host. localhost means
-        listening to local connections only, host means listening to
-        connections from the network, and both means listen to
-        both. Send 'close\\n' on stdin to close it.
-        """)
-    parser.add_argument('-v', '--version', action='store_true',
-                        help='return the version of this program, '
-                        + 'PyDAQmx, and paramiko')
-    parser.add_argument('--host', choices=['localhost', 'all'],
-                        default=_default_host,
-                        help='where to listen for connections '
-                        + '(default is ' + _default_host + ')')
-    parser.add_argument('--port', type=int, default=_default_port,
-                        help='port to listen to connections on '
-                        + '(default is ' + str(_default_port) + ')')
-    parser.add_argument('-d', '--debug', action='store_true',
-                        help='print comminications to stdout')
-    args = parser.parse_args()
+    usage = 'usage: %prog [-h] [-v] [--host {localhost, all}] ' \
+        + '[--port PORT] -d'
+    description='Starts a server for interacting with a National ' \
+        + 'Instruments DAQ listening to the specified port on the ' \
+        + 'indicated host. localhost means listening to local ' \
+        + 'connections only, host means listening to connections ' \
+        + 'from the network, and both means listen to both. Send ' \
+        + "'close\\n' on stdin to close it."
+
+    parser = optparse.OptionParser(usage=usage, description=description)
+    parser.add_option('-v', '--version', action='store_true',
+                      help='return the version of this program, '
+                      + 'PyDAQmx, and paramiko')
+    parser.add_option('--host', choices=['localhost', 'all'],
+                      default=_default_host,
+                      help='where to listen for connections '
+                      + '(default is ' + _default_host + ')')
+    parser.add_option('--port', type=int, default=_default_port,
+                      help='port to listen to connections on '
+                      + '(default is ' + str(_default_port) + ')')
+    parser.add_option('-d', '--debug', action='store_true',
+                      help='print comminications to stdout')
+    options, args = parser.parse_args()
 
     # Load the version information for all the relevant modules into a
     # list. We will need only be able to get the PyDAQmx and paramiko
@@ -1940,7 +1943,7 @@ if __name__ == '__main__' :
 
     # Display version information if asked (and then exit). We will need
     # to load the PyDAQmx module if possible and print its version.
-    if args.version:
+    if options.version:
         for v in versions:
             print(v)
         exit(0)
@@ -1948,12 +1951,12 @@ if __name__ == '__main__' :
     # Run the daq server. If there is an import error, we need to write
     # that to stdout.
     try:
-        if args.host == 'all':
-            daq_server = DaqServer(host='', port=args.port,
-                                   debug_communications=args.debug)
+        if options.host == 'all':
+            daq_server = DaqServer(host='', port=options.port,
+                                   debug_communications=options.debug)
         else:
-            daq_server = DaqServer(host=args.host, port=args.port,
-                                   debug_communications=args.debug)
+            daq_server = DaqServer(host=options.host, port=options.port,
+                                   debug_communications=options.debug)
     except ImportError:
         sys.stderr.write('Couldn''t import PyDAQmx.\n')
         sys.stderr.write('Exit 1\n')
