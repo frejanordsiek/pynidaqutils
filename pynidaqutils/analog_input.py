@@ -329,9 +329,9 @@ class ReadAnalogInputThread(threading.Thread):
         # samples, transmit it, and then increment the sample number
         # counter for the buffer.
         while self._averaged_buf.shape[0] >= block_size:
-            block = self._averaged_buf[:block_size, :]
+            block = self._averaged_buf[:block_size, :].copy()
             self._averaged_buf = \
-                  self._averaged_buf[block_size:, :]
+                  self._averaged_buf[block_size:, :].copy()
             self._transmit_block(block, \
                 self._begin_averaged_buf_sample_number)
             self._begin_averaged_buf_sample_number += block.shape[0]
