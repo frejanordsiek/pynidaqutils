@@ -1915,7 +1915,9 @@ if __name__ == '__main__' :
         + 'indicated host. localhost means listening to local ' \
         + 'connections only, host means listening to connections ' \
         + 'from the network, and both means listen to both. Send ' \
-        + "'close\\n' on stdin to close it."
+        + "'close\\n' on stdin to close it. When it starts running, " \
+        + 'the version information is returned on stdout. Then, ' \
+        + "once it is closed, 'Closed' is written to stdout."
 
     parser = optparse.OptionParser(usage=usage, description=description)
     parser.add_option('-v', '--version', action='store_true',
@@ -1929,7 +1931,7 @@ if __name__ == '__main__' :
                       help='port to listen to connections on '
                       + '(default is ' + str(_default_port) + ')')
     parser.add_option('-d', '--debug', action='store_true',
-                      help='print comminications to stdout')
+                      help='print communications to stdout')
     options, args = parser.parse_args()
 
     # Load the version information for all the relevant modules into a
