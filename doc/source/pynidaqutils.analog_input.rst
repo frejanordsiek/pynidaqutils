@@ -12,7 +12,6 @@ pynidaqutils.analog_input
    DaqInterface
    DaqServer
    DaqServerHandler
-   ReadAnalogInputThread
 
 
 DaqAsynchat
@@ -54,14 +53,5 @@ DaqServerHandler
 ----------------
 
 .. autoclass:: DaqServerHandler
-   :members:
-   :show-inheritance:
-
-
-
-ReadAnalogInputThread
----------------------
-
-.. autoclass:: ReadAnalogInputThread
    :members:
    :show-inheritance:

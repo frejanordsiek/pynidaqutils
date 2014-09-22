@@ -98,7 +98,7 @@ def _convert_to_str(s):
         return s.encode()
 
 
-class ReadAnalogInputThread(threading.Thread):
+class _ReadAnalogInputThread(threading.Thread):
     """ Thread to read analog input data from the DAQ on the server.
 
     It calls functions on `server` directly to transmit data and
@@ -813,7 +813,7 @@ class DaqServerHandler(DaqAsynchat):
         thread_interval = 0.1
 
         # Make the acquiring thread with the calculated interval.
-        self._acquire_thread = ReadAnalogInputThread( \
+        self._acquire_thread = _ReadAnalogInputThread( \
             self._analog_input, self, device, thread_interval,
                  len(channels), freq, averaged,
                  max(1, int(math.ceil(thread_interval*freq))),
