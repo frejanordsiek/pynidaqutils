@@ -96,7 +96,7 @@ modules must be imported::
     >>> import asyncore
     >>> import pynidaqutils.analog_input
 
-Then, the client is started as
+Then, the client is started as::
 
     >>> client = DaqClient(host=host, port=8193)
     >>> th = threading.Thread(target=lambda : asyncore.loop(timeout=1.0))
