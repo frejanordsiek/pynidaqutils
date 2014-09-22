@@ -12,6 +12,7 @@ Contents:
    :maxdepth: 2
    
    information
+   running_manually
    api
 
 
