@@ -31,6 +31,20 @@ client, the PyDAQmx package on the server, and the paramiko package on
 the client if the client and the server are on different machines
 (remote acquisition).
 
+.. warning::
+   
+   The server cannot operate on a machine that doesn't have niDAQmxBase
+   installed and the ``lsdaq`` in the executable path. niDAQmx, the
+   default on Windows, will not work since it does not have the
+   ``lsdaq`` utility. Note that the PyDAQmx package must be one with
+   niDAQmxBase support, so it must be a version greater than ``1.2.5.2``
+   (highest version on PyPi as of 2014-09-23) or be one of the bleeding
+   edge versions/forks on github such as the official one,
+   `clade/PyDAQmx <https://github.com/clade/PyDAQmx>`_, or forks
+   `MarcoForte/PyDAQmx <https://github.com/MarcoForte/PyDAQmx>`_ and
+   `frejanordsiek/PyDAQmx:DAQmxBase_support <https://github.com/frejanordsiek/PyDAQmx/tree/DAQmxBase_support>`_.
+   Note that out of the forks, the first one is the most up to date.
+
 To install pynidaqutils, download the package and run the command::
 
     pythonX setup.py install
