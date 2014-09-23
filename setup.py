@@ -1,3 +1,8 @@
+import sys
+
+if sys.hexversion < 0x2060000:
+    raise NotImplementedError('Python < 2.6 not supported.')
+
 import ez_setup
 ez_setup.use_setuptools()
 
@@ -7,7 +12,7 @@ with open('README.rst') as file:
     long_description = file.read()
 
 setup(name='pynidaqutils',
-      version='0.1.1',
+      version='0.2',
       description='Utilities to work with NI DAQs through PyDAQmx.',
       long_description=long_description,
       author='Freja Nordsiek',
@@ -18,6 +23,8 @@ setup(name='pynidaqutils',
       license='BSD',
       keywords='DAQ nidaq daqmx daqmxbase pydaqmx',
       classifiers=[
+          "Programming Language :: Python :: 2.6",
+          "Programming Language :: Python :: 2.7",
           "Programming Language :: Python :: 3",
           "Development Status :: 3 - Alpha",
           "License :: OSI Approved :: BSD License",
