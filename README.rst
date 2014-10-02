@@ -36,14 +36,12 @@ the client if the client and the server are on different machines
    The server cannot operate on a machine that doesn't have niDAQmxBase
    installed and the ``lsdaq`` in the executable path. niDAQmx, the
    default on Windows, will not work since it does not have the
-   ``lsdaq`` utility. Note that the PyDAQmx package must be one with
-   niDAQmxBase support, so it must be a version greater than ``1.2.5.2``
-   (highest version on PyPi as of 2014-09-23) or be one of the bleeding
-   edge versions/forks on github such as the official one,
-   `clade/PyDAQmx <https://github.com/clade/PyDAQmx>`_, or forks
-   `MarcoForte/PyDAQmx <https://github.com/MarcoForte/PyDAQmx>`_ and
-   `frejanordsiek/PyDAQmx:DAQmxBase_support <https://github.com/frejanordsiek/PyDAQmx/tree/DAQmxBase_support>`_.
-   Note that out of the forks, the first one is the most up to date.
+   ``lsdaq`` utility. Note that the
+   `PyDAQmx <https://pypi.python.org/pypi/PyDAQmx>`_ package must be one
+   with niDAQmxBase support, so it must be a version greater than or
+   equal to ``1.3``. This is not listed in the dependencies because only
+   the    acquisition server in ``pynidaqutils.analog_input`` needs it.
+   The client doesn't.
 
 To install pynidaqutils, download the package and run the command::
 
@@ -170,3 +168,24 @@ The client and server are closed by::
 
 Though, calling ``stop_server`` will automatically call ``stop_client``
 if the client was started.
+
+
+Versions
+========
+
+0.2.1. Updated documentation to reflect new version of `PyDAQmx <https://pypi.python.org/pypi/PyDAQmx>`_.
+
+0.2. Major changes and bugfixes. The highlights are
+     * Better support for the server and client being on different
+       machines using
+       `paramiko <https://pypi.python.org/pypi/paramiko>`_.
+     * Added ability to do temporal binning of acquired samples server
+       side.
+     * Changed communication protocol betweent the server and the client.
+     * Backported to Python 2.6 and 2.7
+     * Completed documentation.
+     * Many bugfixes.
+
+0.1.1. Fixed bug in reporting version from ``pynidaqutils.analog_input``
+
+0.1. Initial version.
